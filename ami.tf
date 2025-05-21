@@ -1,25 +1,39 @@
 resource "aws_instance" "web" {
-  ami                         = "ami-0c55b159cbfafe1f0"  # Amazon Linux 2
-  instance_type               = var.instance_type
-  associate_public_ip_address = true
-  vpc_security_group_ids      = [aws_security_group.instance_sg.id]
-
-  user_data = <<-EOF
-              #!/bin/bash
-              sudo yum update -y
-              sudo yum install -y httpd
-              echo "Hello from AMI Web Server!" > /var/www/html/index.html
-              sudo systemctl enable httpd
-              sudo systemctl start httpd
-              EOF
+  ami           = data.aws_ami.amazon_linux.id
+  instance_type = var.instance_type
+  user_data     = file("user_data.sh")
+  subnet_id     = data.aws_subnets.default.ids[0]
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+  key_name      = aws_key_pair.generated_key.key_name
 
   tags = {
-    Name = "AMI-Web-Builder"
+    Name = "web-ami-instance"
   }
 }
 
 resource "aws_ami_from_instance" "web_ami" {
-  name               = var.ami_name
+  name               = "web-custom-ami-${formatdate("YYYY-MM-DD-hh-mm-ss", timestamp())}"
   source_instance_id = aws_instance.web.id
-  depends_on         = [aws_instance.web]
+  lifecycle {
+    create_before_destroy = true
+  }
+  depends_on = [aws_instance.web]
+}
+
+# Create a new SSH key pair
+resource "tls_private_key" "my_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "generated_key" {
+  key_name   = "ec21-key"
+  public_key = tls_private_key.my_key.public_key_openssh
+}
+
+# Save the private key to a local file
+resource "local_file" "private_key" {
+  content         = tls_private_key.my_key.private_key_pem
+  filename        = "${path.module}/ec21-key.pem"
+  file_permission = "0400"
 }

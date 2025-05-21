@@ -1,15 +1,12 @@
-variable "aws_region" {
-  default = "us-east-1"
+variable "region" {
+  default = "ap-south-1"
 }
 
 variable "instance_type" {
   default = "t2.micro"
 }
 
-variable "ami_name" {
-  default = "webserver-ami"
-}
-
-variable "asg_desired_capacity" {
-  default = 2
+variable "domain_name" {
+  description = "Your custom domain"
+  type        = string
 }
